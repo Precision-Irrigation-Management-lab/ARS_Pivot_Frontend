@@ -1,0 +1,79 @@
+.pivot-builder {
+    padding: 20px;
+    max-width: 800px;
+    margin: auto;
+    background-color: #f5f5f5;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .pivot-builder h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+  
+  .form-group input[type="checkbox"],
+  .form-group input[type="radio"] {
+    width: auto;
+    margin-right: 10px;
+  }
+  
+  input[type="number"] {
+    width: calc(33.3333% - 10px);
+    display: inline-block;
+    margin-right: 10px;
+  }
+  
+  select {
+    width: auto;
+    display: inline-block;
+  }
+  
+  textarea {
+    height: 100px;
+  }
+  
+  button[type="submit"] {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  button[type="submit"]:hover {
+    background-color: #0056b3;
+  }
+  
+  .input-group label {
+    display: flex;
+    align-items: center;
+  }
+  
+  .input-group input {
+    margin-right: 5px;
+  }
+  

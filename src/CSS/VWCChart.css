@@ -1,0 +1,15 @@
+.home {
+    padding: 20px;
+  }
+  
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  
+  .controls select,
+  .controls input {
+    margin-right: 10px;
+  }
+  

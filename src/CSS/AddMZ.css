@@ -1,0 +1,135 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.map-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  height: 90vh;
+  width: 100%;
+}
+
+.leaflet-container {
+  width: 100% !important; /* Ensures the map occupies most of the available width */
+  height: 60vh !important; /* Increases the map height for better visibility */
+  margin: 20px 0;
+  flex: 1;
+  background: #ddd;
+  outline-offset: 1px;
+  overflow: hidden;
+  font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-container.leaflet-touch-drag,
+.leaflet-container.leaflet-touch-zoom,
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+  touch-action: none;
+}
+
+.leaflet-container.leaflet-touch-drag {
+  touch-action: pinch-zoom;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+  touch-action: pan-x pan-y;
+}
+
+.error-message {
+  color: red;
+  margin-top: 5px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.controls input,
+.controls label {
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.controls input {
+  padding: 8px;
+  margin-top: 5px;
+  font-size: 16px;
+}
+
+.submit-button {
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.custom-div-icon .map-text {
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Media Queries for Responsiveness */
+@media (max-width: 768px) {
+  .leaflet-container {
+    width: 100% !important; /* Ensure full width on smaller screens */
+    height: 60vh !important;
+  }
+
+  .controls {
+    width: 100%;
+    padding: 0 10px;
+  }
+
+  .controls input,
+  .controls label {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .leaflet-container {
+    width: 100% !important; /* Ensure full width on smaller screens */
+    height: 50vh !important;
+  }
+
+  .controls {
+    width: 100%;
+    padding: 0 5px;
+  }
+
+  .controls input,
+  .controls label {
+    max-width: 100%;
+  }
+
+  .submit-button {
+    width: 100%;
+    max-width: 300px;
+    text-align: center;
+  }
+}
