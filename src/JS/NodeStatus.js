@@ -7,8 +7,10 @@ const NodeStatus = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const userid = sessionStorage.getItem('userid'); // Retrieve userid from session storage
-
+  // Parse the user ID from the session storage
+  const user = JSON.parse(sessionStorage.getItem('user'));
+  const userid = user?.user_id // Retrieve userid from session storage
+  //console.log(userid)
   useEffect(() => {
     if (!userid) {
       setError('User ID not found. Please login first.');

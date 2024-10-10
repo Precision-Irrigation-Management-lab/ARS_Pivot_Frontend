@@ -35,13 +35,13 @@ const Login = () => {
       sessionStorage.setItem('user', JSON.stringify(user));
 
       // Log the user object to the console
-      console.log('Logged in user:', user);
+      //console.log('Logged in user:', user);
 
       // Trigger the storage event to update Navbar
       window.dispatchEvent(new Event('storage'));
 
       // Navigate to DisplayFarmPage upon successful login
-      navigate('/displayfarm');
+      navigate('/home');
     } catch (error) {
       console.error('Login failed', error);
       if (error.response) {

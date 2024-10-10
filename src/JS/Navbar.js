@@ -62,10 +62,7 @@ const Navbar = () => {
         {user ? (
           <>
             <li>
-              <Link to="/nodelist">NodeList</Link>
-            </li>
-            <li>
-              <Link to="/lineartest">Linear test</Link>
+              <Link to="/home">Home</Link>
             </li>
             <li>
               <Link to="/vwcchart">VWCChart</Link>
@@ -75,9 +72,6 @@ const Navbar = () => {
             </li>
             <li>
               <Link to="/pivotbuilder">PivotBuilder</Link>
-            </li>
-            <li>
-              <Link to="/addmz">AddMZ</Link>
             </li>
             <li className="dropdown" ref={dropdownRef}>
               <button className="dropbtn" onClick={toggleDropdown}>

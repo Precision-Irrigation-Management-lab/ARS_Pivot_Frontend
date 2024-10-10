@@ -16,6 +16,7 @@ import AddFarm from './JS/AddFarm';
 import AddMZ from './JS/AddMZ';
 import HomePage from './JS/HomePage';
 import AddLinearMove from './JS/AddLinearMove';
+import AddMicroIrrigation from './JS/AddMicroIrrigation';
 import MapComponent from './JS/LinearTest';
 import AddTDRGateway from './JS/AddTDRGateway';
 const App = () => {
@@ -37,6 +38,7 @@ const App = () => {
         <Route path="/addfarm" element={<AddFarm />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/addlinearmove" element={<AddLinearMove />} />
+        <Route path="/addmicroirrigation" element={<AddMicroIrrigation />} />
         <Route path="/lineartest" element={<MapComponent />} />
         <Route path="/addtdrgateway" element={<AddTDRGateway />} />
       </Routes>

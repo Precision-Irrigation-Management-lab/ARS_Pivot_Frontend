@@ -1,4 +1,3 @@
-// AddIrrigationSystem.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -51,7 +50,14 @@ const AddIrrigationSystem = () => {
     } else {
       setError('Please select a farm first.');
     }
-    // Add logic to handle adding linear move
+  };
+
+  const handleAddMicroIrrigation = () => {
+    if (selectedFarm) {
+      navigate('/addmicroirrigation', { state: { farm: selectedFarm } });
+    } else {
+      setError('Please select a farm first.');
+    }
   };
 
   const handleAddFarm = () => {
@@ -87,6 +93,7 @@ const AddIrrigationSystem = () => {
       <div>
         <button onClick={handleAddCenterPivot} disabled={farms.length === 0}>Add Center Pivot</button>
         <button onClick={handleAddLinearMove} disabled={farms.length === 0}>Add Linear Move</button>
+        <button onClick={handleAddMicroIrrigation} disabled={farms.length === 0}>Add Micro Irrigation</button> {/* New button */}
       </div>
     </div>
   );

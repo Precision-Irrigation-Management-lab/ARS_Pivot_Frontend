@@ -56,7 +56,7 @@ const LegendControl = ({ managementZones }) => {
 const AddMZ = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { farmname, irrigation_system_name } = location.state || {};
+  const { farmname, irrigation_system_name,fromPage } = location.state || {};
 
   const user = JSON.parse(sessionStorage.getItem('user'));
   const user_id = user?.user_id;
@@ -77,49 +77,49 @@ const AddMZ = () => {
   const [showModal, setShowModal] = useState(false); // State to control modal visibility
 
   useEffect(() => {
-    const fetchGeoJson = async () => {
+    const fetchGeoJsonAndZones = async () => {
       try {
-        console.log(`Fetching GeoJSON data for user_id: ${user_id}, farmname: ${farmname}, irrigation_system_name: ${irrigationSystemName}`);
-        const response = await axios.get(`http://localhost:8000/geojson/${user_id}/${farmname}/${irrigationSystemName}`);
-        console.log('GeoJSON fetch response:', response.data);
-
-        const { geojson, user_id: responseUserId, farmname: responseFarmname, center, irrigation_system_name: responseIrrigationSystemName } = response.data;
-
-        console.log('Fetched GeoJSON:', geojson);
-        console.log('Response User ID:', responseUserId);
-        console.log('Response Farmname:', responseFarmname);
-        console.log('Map Center:', center);
-        console.log('Irrigation System Name:', responseIrrigationSystemName);
-
+        if (!user_id || !farmname || !irrigationSystemName) return;
+    
+        // Fetch the current location
+    
+        // Fetch the GeoJSON data
+        const geoJsonResponse = await axios.get(`http://localhost:8000/geojson/${user_id}/${farmname}/${irrigationSystemName}`);
+        const { geojson, center } = geoJsonResponse.data;
+    
         if (!geojson.features) {
           throw new Error('Invalid GeoJSON data: features property is missing');
         }
-
+    
         const features = geojson.features.map((feature, index) => ({
           ...feature,
           id: feature.id || feature.properties.id || index,
         }));
-
+    
         setGeojsonData({ type: 'FeatureCollection', features });
-        setIrrigationSystemName(responseIrrigationSystemName);
-
-        // Use the center from the GET request to set the map center
-        const mapCenter = [center.latitude, center.longitude] || [39.539106, -119.806483]; // Fallback to default if no center is provided
-        setMapCenter(mapCenter);
-
-        // Update the map view if the mapRef is set
-        if (mapRef.current) {
-          mapRef.current.setView(mapCenter, mapZoom);
+    
+        // Set the map center based on the response
+        if (center && center.latitude !== undefined && center.longitude !== undefined) {
+          const newCenter = [center.latitude, center.longitude];
+          setMapCenter(newCenter);
+          mapRef.current && mapRef.current.setView(newCenter, mapZoom); // Update the map view
         }
+    
+        // Fetch management zones only if the user navigated from the /home page
+        if (fromPage === '/home') {
+          const zonesResponse = await axios.get(`http://localhost:8000/all/management-zones/${user_id}/${farmname}/${irrigationSystemName}`);
+          setManagementZones(zonesResponse.data.zones);
+        }
+    
       } catch (error) {
-        console.error('Error fetching GeoJSON data:', error);
+        console.error('Error fetching data:', error);
+        setErrorMessage('Failed to load data. Please try again later.');
+        setShowModal(true);
       }
     };
 
-    if (user_id && farmname && irrigationSystemName) {
-      fetchGeoJson();
-    }
-  }, [user_id, farmname, irrigationSystemName, mapZoom]);
+    fetchGeoJsonAndZones();
+  }, [user_id, farmname, irrigationSystemName]);
 
   useEffect(() => {
     managementZonesRef.current = managementZones;
@@ -255,7 +255,7 @@ const AddMZ = () => {
       updateGeoJsonWithZonesAfterDeletion(selectedZoneToDelete);
 
       try {
-        await axios.delete(`http://localhost:8000/management-zones/${user_id}/${farmname}/${zoneToDelete.irrigation_system_name}/${zoneToDelete.mz_name}`);
+        await axios.delete(`http://localhost:8000/management-zones/${user_id}/${farmname}/${irrigation_system_name}/${zoneToDelete.mz_name}`);
         console.log('Zone data successfully deleted');
       } catch (error) {
         console.error('Error deleting zone data:', error);
