@@ -1,16 +1,15 @@
+/* Global Styles */
 body, html {
   margin: 0;
   padding: 0;
   font-family: Arial, sans-serif;
-}
-
-body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.map-container {
+/* Map Container */
+.addmz-map-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -18,11 +17,13 @@ body {
   box-sizing: border-box;
   height: 90vh;
   width: 100%;
+  min-height: 400px;
 }
 
+/* Leaflet Map Styles */
 .leaflet-container {
-  width: 100% !important; /* Ensures the map occupies most of the available width */
-  height: 60vh !important; /* Increases the map height for better visibility */
+  width: 100% !important; /* Ensures the map occupies full width */
+  height: 60vh !important; /* Good map height for visibility */
   margin: 20px 0;
   flex: 1;
   background: #ddd;
@@ -35,8 +36,7 @@ body {
 }
 
 .leaflet-container.leaflet-touch-drag,
-.leaflet-container.leaflet-touch-zoom,
-.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+.leaflet-container.leaflet-touch-zoom {
   touch-action: none;
 }
 
@@ -48,11 +48,13 @@ body {
   touch-action: pan-x pan-y;
 }
 
+/* Error Message */
 .error-message {
   color: red;
   margin-top: 5px;
 }
 
+/* Controls Styles */
 .controls {
   display: flex;
   flex-direction: column;
@@ -63,8 +65,7 @@ body {
   box-sizing: border-box;
 }
 
-.controls input,
-.controls label {
+.controls input, .controls label {
   width: 100%;
   max-width: 300px;
   box-sizing: border-box;
@@ -88,6 +89,7 @@ body {
   cursor: pointer;
 }
 
+/* Custom Marker Text */
 .custom-div-icon .map-text {
   font-weight: bold;
   text-align: center;
@@ -96,34 +98,28 @@ body {
 /* Media Queries for Responsiveness */
 @media (max-width: 768px) {
   .leaflet-container {
-    width: 100% !important; /* Ensure full width on smaller screens */
     height: 60vh !important;
   }
 
   .controls {
-    width: 100%;
     padding: 0 10px;
   }
 
-  .controls input,
-  .controls label {
+  .controls input, .controls label {
     max-width: 100%;
   }
 }
 
 @media (max-width: 480px) {
   .leaflet-container {
-    width: 100% !important; /* Ensure full width on smaller screens */
     height: 50vh !important;
   }
 
   .controls {
-    width: 100%;
     padding: 0 5px;
   }
 
-  .controls input,
-  .controls label {
+  .controls input, .controls label {
     max-width: 100%;
   }
 

@@ -425,7 +425,7 @@ const AddMZ = () => {
   };
 
   return (
-    <div className="map-container">
+    <div className="addmz-map-container">
       <div className="zone-form">
         <input
           type="text"

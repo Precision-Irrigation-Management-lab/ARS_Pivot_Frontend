@@ -61,6 +61,8 @@ const AddLinearMove = () => {
     const [key, setKey] = useState(0);
     const [isLengthHorizontal, setIsLengthHorizontal] = useState(true);
     const debouncedSearchText = useDebounce(searchText, 500);
+    const [calculatedArea, setCalculatedArea] = useState(''); // Add this line
+
 
     useEffect(() => {
         const fetchSuggestions = async () => {
@@ -82,31 +84,33 @@ const AddLinearMove = () => {
 
     const handleCreated = useCallback((e) => {
         const { layerType, layer } = e;
-
+    
         if (layerType === 'rectangle' || layerType === 'polygon') {
             if (drawnLayer) {
-                // Remove the newly created layer immediately if one already exists
                 mapRef.current.removeLayer(layer);
                 alert('Please delete the existing layer before drawing a new one.');
                 return;
             }
-
+    
             const geojson = layer.toGeoJSON();
             const bounds = layer.getBounds ? layer.getBounds() : L.latLngBounds(layer.getLatLngs()[0]);
             const southWest = bounds.getSouthWest();
             const northEast = bounds.getNorthEast();
             const layerLength = southWest.distanceTo([southWest.lat, northEast.lng]);
             const layerWidth = southWest.distanceTo([northEast.lat, southWest.lng]);
-
+    
+            // Calculate area (length * width)
+            const area = layerLength * layerWidth;
+    
             geojson.properties.length = layerLength;
             geojson.properties.width = layerWidth;
-
+            geojson.properties.area = area;
+    
             const center = bounds.getCenter();
             setCenterPoint({ lat: center.lat, lng: center.lng });
-
+    
             setDrawnLayer(layer);
-
-            // Ask the user to select which side is length and which is width
+    
             const userChoice = window.confirm('Does the Linear move horizontally? Click "OK" for Yes, "Cancel" for No.');
             setIsLengthHorizontal(userChoice);
             if (userChoice) {
@@ -116,17 +120,21 @@ const AddLinearMove = () => {
                 setLengthOfLinear(layerWidth);
                 setWidthOfLinear(layerLength);
             }
-
-            const newBbox = [
+    
+            setBbox([
                 [southWest.lat, southWest.lng],
                 [northEast.lat, northEast.lng]
-            ];
-            setBbox(newBbox);
-
+            ]);
+    
+            // Set the calculated area
+            setCalculatedArea(area.toFixed(2));  // Store area value (rounded to 2 decimal places)
+    
             console.log('Layer created:', geojson);
-            console.log('Bounding Box:', newBbox);
+            console.log('Bounding Box:', bbox);
+            console.log('Area:', area);
         }
     }, [drawnLayer]);
+    
 
     const handleDeleted = useCallback(() => {
         setDrawnLayer(null);
@@ -249,26 +257,24 @@ const AddLinearMove = () => {
             alert('User not logged in or user ID not available');
             return;
         }
-
+    
         if (!drawnLayer || !startPoint) {
             alert('Please draw a shape and select a start point on the map before submitting.');
             return;
         }
-
+    
         const bounds = drawnLayer.getBounds ? drawnLayer.getBounds() : L.latLngBounds(drawnLayer.getLatLngs()[0]);
         const bbox = [
             [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
             [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
         ];
-
+    
         const sprinklerZonesData = sprinklerZones.reduce((acc, zone, index) => {
             const width = index === numberOfSprinklerZones - 1 ? widthOfLinear : parseFloat(zone.finalWidth);
             acc[zone.id] = [parseFloat(zone.initialWidth || 0), width];
             return acc;
         }, {});
-
-        console.log('Sprinkler Zones Data:', sprinklerZonesData);
-
+    
         const geoJsonRequest = {
             center: {
                 latitude: parseFloat(centerPoint.lat),
@@ -281,24 +287,25 @@ const AddLinearMove = () => {
             irrigation_system_name: linearMoveName,
             sprinklerzones: sprinklerZonesData,
             bbox: bbox,
-            startpoint: startPoint, // Add start_point to request
-            user_id: user_id, // Added user_id field here
-            isLengthHorizontal: isLengthHorizontal // Add isLengthHorizontal field here
+            startpoint: startPoint,
+            user_id: user_id,
+            isLengthHorizontal: isLengthHorizontal,
+            area: calculatedArea // Include area in the request
         };
-        console.log('bbox:', bbox);
+    
         console.log('Request Body:', JSON.stringify(geoJsonRequest, null, 2));
-
+    
         const endpoint = 'http://127.0.0.1:8000/linear/generate-geojson';
         try {
             const response = await axios.post(endpoint, geoJsonRequest);
             console.log('API Response:', response.data);
-
+    
             navigate('/addmz', { state: { farmname: farmName, irrigation_system_name: linearMoveName } });
         } catch (error) {
             console.error('Error submitting GeoJSON:', error);
         }
     };
-
+    
     const getCornerMarkers = () => {
         if (!bbox) return null;
 
@@ -407,6 +414,18 @@ const AddLinearMove = () => {
                         />
                     </label>
                 </div>
+                <div className="input-field">
+                    <label>
+                          Area of Linear Move (square meters):
+                         <input
+                             type="text"
+                            value={calculatedArea}
+                            onChange={(e) => setCalculatedArea(e.target.value)}
+                            // Make it editable if required by removing this
+                         />
+                    </label>
+                </div>
+
                 <div className="input-field">
                     <label>
                         Center Latitude:
