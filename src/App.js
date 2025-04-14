@@ -19,6 +19,7 @@ import AddLinearMove from './JS/AddLinearMove';
 import AddMicroIrrigation from './JS/AddMicroIrrigation';
 import MapComponent from './JS/LinearTest';
 import AddTDRGateway from './JS/AddTDRGateway';
+import GeneratePrescriptionMap from './JS/GeneratePrescriptionMap'; // Import the GeneratePrescriptionMap component
 const App = () => {
   return (
     <Router>
@@ -41,6 +42,8 @@ const App = () => {
         <Route path="/addmicroirrigation" element={<AddMicroIrrigation />} />
         <Route path="/lineartest" element={<MapComponent />} />
         <Route path="/addtdrgateway" element={<AddTDRGateway />} />
+        <Route path="/nodeform" element={<NodeForm />} />
+        <Route path="/generate-prescription-map" element={<GeneratePrescriptionMap />} />
       </Routes>
     </Router>
   );

@@ -5,8 +5,8 @@ import { EditControl } from 'react-leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import L from 'leaflet';
-import axios from 'axios';
 import '../CSS/AddCenterPivot.css';
+import { irrigationAPI, searchAPI } from './services/api'; // Import the API services
 
 // Fix marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -36,12 +36,15 @@ const useDebounce = (value, delay) => {
 const AddCenterPivot = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { farm } = location.state || {};
+  const { farm } = location.state || { farm: '' };
 
   const user = JSON.parse(sessionStorage.getItem('user'));
   const user_id = user ? user.user_id : null;
   const farmName = farm;
 
+  const [mode, setMode] = useState('addSprinklerZones'); // Toggle between addSprinklerZones and uploadVRI
+  const [selectedFile, setSelectedFile] = useState(null);
+  
   const mapRef = useRef();
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -66,13 +69,14 @@ const AddCenterPivot = () => {
   const debouncedSearchText = useDebounce(searchText, 500);
   const [shapeDrawn, setShapeDrawn] = useState(false);
   const [key, setKey] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (debouncedSearchText.length > 2) {
-        const endpoint = `https://nominatim.openstreetmap.org/search?format=json&q=${debouncedSearchText}`;
         try {
-          const response = await axios.get(endpoint);
+          const response = await searchAPI.searchLocation(debouncedSearchText);
           setSearchResults(response.data);
         } catch (error) {
           console.error('Error fetching search results:', error);
@@ -138,36 +142,130 @@ const AddCenterPivot = () => {
     setSearchResults([]);
   };
 
-  const handleRadiusChange = (e) => {
-    const newRadius = parseFloat(e.target.value);
-    if (isNaN(newRadius) || newRadius <= 0) {
-      setInputError('Please enter a valid radius');
-      return;
-    }
-    setRadius(newRadius);
-    setInputError('');
+  const updateDrawnLayer = useCallback(({ lat, lng, radius }) => {
+    setDrawnLayers((prevLayers) => {
+        if (prevLayers.length === 0) return prevLayers;
 
-    setStartMarkerPosition(null);
-    setEndMarkerPosition(null);
-    setStartAngle('');
-    setEndAngle('');
-    setAngleSelectionMode('start');
-    setShowStartPopup(true);
-    setShowEndPopup(false);
-
-    // Update the final radius of the last sprinkler zone
-    setSprinklerZones((zones) => {
-      const updatedZones = zones.map((zone, index) => {
-        if (index === zones.length - 1) {
-          return { ...zone, finalRadius: newRadius.toString() };
-        }
-        return zone;
-      });
-      return updatedZones;
+        return prevLayers.map((layer) => {
+            if (lat !== undefined) layer.geometry.coordinates[1] = lat;
+            if (lng !== undefined) layer.geometry.coordinates[0] = lng;
+            if (radius !== undefined) layer.properties.radius = radius;
+            return layer;
+        });
     });
+}, []);
 
-    console.log('Radius changed:', newRadius);
+        
+const handleModeChange = (newMode) => {
+  setMode(newMode);
+  setSelectedFile(null);
+};
+
+const handleFileChange = (event) => {
+  const file = event.target.files[0];
+  if (file && (file.name.endsWith('.xml') || file.name.endsWith('.vri'))) {
+    setSelectedFile(file);
+  } else {
+    setInputError('Invalid file format. Please upload a .xml or .vri file.');
+  }
+};
+
+const handleSubmitFile = async () => {
+  if (!selectedFile) {
+    setInputError('Please select a valid file before submitting.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const xmlData = e.target.result;
+
+    const pivotGeoJsonRequest = {
+      user_id: user_id,
+      farmname: farmName,
+      center: {
+        latitude: parseFloat(centerPoint.lat),
+        longitude: parseFloat(centerPoint.lng),
+      },
+      radius: parseFloat(radius),
+      irrigation_system_name: pivotName,
+      start_angle: parseFloat(startAngle),
+      end_angle: parseFloat(endAngle),
+      maximum_speed: parseFloat(maximumSpeed),
+      application_rate: parseFloat(waterApplicationAtMaxSpeed),
+      xml_data: xmlData,
+    };
+
+    try {
+      const response = await irrigationAPI.generateGeojsonFromXml(pivotGeoJsonRequest);
+      console.log('Upload successful:', response.data);
+      navigate('/addmz', {
+                    state: { farmname: farmName, irrigation_system_name: pivotName },
+                });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    }
   };
+
+  reader.readAsText(selectedFile);
+};
+
+
+
+    const syncDrawnLayer = () => {
+      setDrawnLayers([{
+          type: 'Feature',
+          geometry: {
+              type: 'Point',
+              coordinates: [centerPoint.lng, centerPoint.lat]
+          },
+          properties: { radius }
+      }]);
+    };
+  
+  
+    const handleRadiusChange = (e) => {
+      const newRadius = parseFloat(e.target.value);
+      if (isNaN(newRadius) || newRadius <= 0) return;
+    
+      setRadius(newRadius);
+      setShapeDrawn(true);
+    
+      // Update drawn layers
+      setDrawnLayers([{
+          type: 'Feature',
+          geometry: {
+              type: 'Point',
+              coordinates: [centerPoint.lng, centerPoint.lat]
+          },
+          properties: { radius: newRadius }
+      }]);
+    
+      setInputError('');
+    
+      setStartMarkerPosition(null);
+      setEndMarkerPosition(null);
+      setStartAngle('');
+      setEndAngle('');
+      setAngleSelectionMode('start');
+      setShowStartPopup(true);
+      setShowEndPopup(false);
+    
+      // Update the final radius of the last sprinkler zone
+      setSprinklerZones((zones) => {
+        const updatedZones = zones.map((zone, index) => {
+          if (index === zones.length - 1) {
+            return { ...zone, finalRadius: newRadius.toString() };
+          }
+          return zone;
+        });
+        return updatedZones;
+      });
+    
+      console.log('Radius changed:', newRadius);
+    };
+    
+    
 
   const handleSprinklerZoneChange = (index, field, value) => {
     const newSprinklerZones = [...sprinklerZones];
@@ -253,13 +351,16 @@ const AddCenterPivot = () => {
 
   const handleCenterPointChange = (e) => {
     const { name, value } = e.target;
-    if (isNaN(parseFloat(value))) {
-      setInputError('Please enter a valid latitude and longitude');
-      return;
-    }
-    setCenterPoint((prev) => ({ ...prev, [name]: value }));
-    setInputError('');
-  };
+    const parsedValue = parseFloat(value);
+    if (isNaN(parsedValue)) return;
+
+    setCenterPoint((prev) => ({ ...prev, [name]: parsedValue }));
+
+    // Ensure the drawn shape is registered when inputs change
+    setShapeDrawn(true);
+    syncDrawnLayer();
+};
+
 
   const handlePivotNameChange = (e) => {
     if (!e.target.value) {
@@ -272,10 +373,15 @@ const AddCenterPivot = () => {
 
   const calculatePointFromAngle = useCallback((angle, radius) => {
     const radian = (angle * Math.PI) / 180;
-    const lat = centerPoint.lat + (radius * Math.cos(radian)) / 111320;
-    const lng = centerPoint.lng + (radius * Math.sin(radian)) / (111320 * Math.cos((centerPoint.lat * Math.PI) / 180));
-    return { lat, lng };
-  }, [centerPoint.lat, centerPoint.lng]);
+    const latOffset = (radius * Math.cos(radian)) / 111320;
+    const lngOffset = (radius * Math.sin(radian)) / (111320 * Math.cos(centerPoint.lat * Math.PI / 180));
+
+    return {
+        lat: parseFloat((centerPoint.lat + latOffset).toFixed(6)),  // Ensure precision
+        lng: parseFloat((centerPoint.lng + lngOffset).toFixed(6))
+    };
+}, [centerPoint.lat, centerPoint.lng]);
+
 
   const handleStartAngleChange = (e) => {
     const newAngle = parseFloat(e.target.value);
@@ -357,9 +463,12 @@ const AddCenterPivot = () => {
       return false;
     }
 
-    if (drawnLayers.length === 0) {
-      setInputError('Please draw a shape on the map before submitting.');
-      return false;
+    // Check if a valid shape exists
+    const hasValidShape = (drawnLayers.length > 0) || (centerPoint.lat && centerPoint.lng && radius);
+    
+    if (!hasValidShape) {
+        setInputError('Please draw a shape on the map before submitting.');
+        return false;
     }
 
     if ((!startAngle && startAngle !== 0) || (!endAngle && endAngle !== 0)) {
@@ -409,50 +518,42 @@ const AddCenterPivot = () => {
     return true;
   };
 
-  const handleSubmit = async () => {
-    console.log('Submit clicked');
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
     if (!validateInputs()) {
       return;
     }
-
-    const radiusValue = parseFloat(radius);
-
-    const sprinklerZonesData = sprinklerZones.reduce((acc, zone, index) => {
-      acc[index + 1] = [
-        parseFloat(zone.initialRadius),
-        parseFloat(zone.finalRadius)
-      ];
-      return acc;
-    }, {});
-
-    const geoJsonRequest = {
-      user_id: user_id,
-      farmname: farmName,
-      center: {
-        latitude: parseFloat(centerPoint.lat),
-        longitude: parseFloat(centerPoint.lng),
-      },
-      radius: radiusValue,
-      sprinklerzones: sprinklerZonesData,
-      space_between_nozzles: parseFloat(spaceBetweenNozzles),
-      maximum_speed: parseFloat(maximumSpeed),
-      water_application_at_max_speed: parseFloat(waterApplicationAtMaxSpeed),
-      irrigation_system_name: pivotName,
-      start_angle: startAngle,
-      end_angle: endAngle,
-    };
-
-    console.log('Request Body:', geoJsonRequest);
-
-    const endpoint = 'http://127.0.0.1:8000/generate-geojson';
+    
+    setLoading(true);
+    setError('');
+    
     try {
-      const response = await axios.post(endpoint, geoJsonRequest);
-      console.log('API Response:', response.data);
-
-      navigate('/addmz', { state: { farmname: farmName, irrigation_system_name: pivotName } });
-    } catch (error) {
-      console.error('Error submitting GeoJSON:', error);
+      const pivotData = {
+        user_id: user_id,
+        farm_name: farmName,
+        pivot_name: pivotName,
+        center_lat: parseFloat(centerPoint.lat),
+        center_lng: parseFloat(centerPoint.lng),
+        radius: parseFloat(radius),
+        start_angle: parseFloat(startAngle),
+        end_angle: parseFloat(endAngle),
+        maximum_speed: parseFloat(maximumSpeed),
+        water_application: parseFloat(waterApplicationAtMaxSpeed),
+        sprinkler_zones: sprinklerZones.map(zone => ({
+          initial_radius: parseFloat(zone.initialRadius),
+          final_radius: parseFloat(zone.finalRadius)
+        })),
+        space_between_nozzles: parseFloat(spaceBetweenNozzles)
+      };
+      
+      await irrigationAPI.createCenterPivot(pivotData);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error adding center pivot:', err);
+      setError(err.response?.data?.detail || 'Failed to add center pivot');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -469,7 +570,10 @@ const AddCenterPivot = () => {
       setEndMarkerPosition(newPosition);
     }
   }, [endAngle, radius, calculatePointFromAngle]);
-
+  useEffect(() => {
+    updateDrawnLayer({ lat: centerPoint.lat, lng: centerPoint.lng, radius });
+  }, [centerPoint, radius, updateDrawnLayer]); // ✅ Add updateDrawnLayer here
+  
   return (
     <div className="Add-centerpivot-map-container">
       <form className="search-container" onSubmit={(e) => e.preventDefault()}>
@@ -580,6 +684,19 @@ const AddCenterPivot = () => {
         )}
         <MapClickHandler />
       </MapContainer>
+      
+      <div className="mode-toggle">
+        <button onClick={() => handleModeChange('addSprinklerZones')} className={mode === 'addSprinklerZones' ? 'active' : ''}>Add Sprinkler Zones</button>
+        <button onClick={() => handleModeChange('uploadVRI')} className={mode === 'uploadVRI' ? 'active' : ''}>Upload VRI</button>
+      </div>
+
+      {mode === 'uploadVRI' && (
+        <div className="upload-section">
+          <input type="file" accept=".xml,.vri" onChange={handleFileChange} />
+          {inputError && <p className="error-message">{inputError}</p>}
+        </div>
+      )}
+
       <div className="input-fields">
         <div className="input-field">
           <label>
@@ -671,40 +788,44 @@ const AddCenterPivot = () => {
             />
           </label>
         </div>
-        <div className="input-field">
-          <label>
-            Number of Sprinkler Zones:
-            <input
-              type="number"
-              value={numberOfSprinklerZones}
-              onChange={handleNumberOfSprinklerZonesChange}
-              min="1"
-            />
-          </label>
-        </div>
-        {sprinklerZones.map((zone, index) => (
-          <div key={index} className="sprinkler-zone">
-            {index === 0 && (
+        {mode !== 'uploadVRI' && (
+          <>
+            <div className="input-field">
               <label>
-                Initial Radius of Sprinkler Zone 1 (meters):
+                Number of Sprinkler Zones:
                 <input
-                  type="text"
-                  value={zone.initialRadius}
-                  onChange={(e) => handleSprinklerZoneChange(index, 'initialRadius', e.target.value)}
+                  type="number"
+                  value={numberOfSprinklerZones}
+                  onChange={handleNumberOfSprinklerZonesChange}
+                  min="1"
                 />
               </label>
-            )}
-            <label>
-              Final Radius of Sprinkler Zone {index + 1} (meters):
-              <input
-                type="text"
-                value={index === sprinklerZones.length - 1 ? radius : zone.finalRadius}
-                onChange={(e) => handleSprinklerZoneChange(index, 'finalRadius', e.target.value)}
-                readOnly={index === sprinklerZones.length - 1}
-              />
-            </label>
-          </div>
-        ))}
+            </div>
+            {sprinklerZones.map((zone, index) => (
+              <div key={index} className="sprinkler-zone">
+                {index === 0 && (
+                  <label>
+                    Initial Radius of Sprinkler Zone 1 (meters):
+                    <input
+                      type="text"
+                      value={zone.initialRadius}
+                      onChange={(e) => handleSprinklerZoneChange(index, 'initialRadius', e.target.value)}
+                    />
+                  </label>
+                )}
+                <label>
+                  Final Radius of Sprinkler Zone {index + 1} (meters):
+                  <input
+                    type="text"
+                    value={index === sprinklerZones.length - 1 ? radius : zone.finalRadius}
+                    onChange={(e) => handleSprinklerZoneChange(index, 'finalRadius', e.target.value)}
+                    readOnly={index === sprinklerZones.length - 1}
+                  />
+                </label>
+              </div>
+            ))}
+          </>
+        )}
         <div className="input-field">
           <label>
             Space Between Nozzles (meters):
@@ -717,11 +838,10 @@ const AddCenterPivot = () => {
         </div>
         {inputError && <div className="error-message">{inputError}</div>}
       </div>
-      <button className="submit-button" onClick={handleSubmit}>
+      <button className="submit-button" onClick={mode === 'uploadVRI' ? handleSubmitFile : handleSubmit}>
         Submit
       </button>
     </div>
   );
 };
-
 export default AddCenterPivot;

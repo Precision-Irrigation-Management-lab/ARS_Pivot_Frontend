@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from './services/api'; // Import the API service
 
 const Register = () => {
   const [password, setPassword] = useState('');
@@ -10,7 +10,7 @@ const Register = () => {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (password !== reEnterPassword) {
@@ -18,31 +18,26 @@ const Register = () => {
       return;
     }
 
-    const requestBody = {
-      password,
-      email,
-      units,
-      farms: [] // Adding farms field as an empty list
-    };
-
-    console.log('Request Body:', requestBody); // Console log the request body
-
+    setMessage('');
+    
     try {
-      const response = await axios.post('http://localhost:8001/register', requestBody);
-      setMessage(response.data.message);
-      // Navigate to login page upon successful registration
-      if (response.status === 201) {
-        navigate('/login');
-      }
-    } catch (error) {
-      setMessage('Registration failed');
+      await authAPI.register({
+        email: email,
+        password: password,
+        units: units
+      });
+
+      navigate('/login', { state: { message: 'Registration successful! Please login.' } });
+    } catch (err) {
+      console.error('Registration error:', err);
+      setMessage(err.response?.data?.detail || 'Registration failed');
     }
   };
 
   return (
     <div>
       <h2>Register</h2>
-      <form onSubmit={handleRegister}>
+      <form onSubmit={handleSubmit}>
         <div>
           <label>Email:</label>
           <input

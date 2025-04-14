@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from './services/api'; // Import the API service
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -8,61 +8,33 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      const params = new URLSearchParams();
-      params.append('username', username);
-      params.append('password', password);
-
-      const response = await axios.post('http://localhost:8001/token', params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      const response = await authAPI.login({
+        username: username,
+        password: password
       });
 
-      const token = response.data.access_token;
-      sessionStorage.setItem('token', token);
+      const { access_token, token_type } = response.data;
+      sessionStorage.setItem('token', access_token);
 
-      const userResponse = await axios.get('http://localhost:8001/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Fetch user info
+      const userResponse = await authAPI.getUserInfo();
+      sessionStorage.setItem('user', JSON.stringify(userResponse.data));
 
-      const user = userResponse.data;
-      sessionStorage.setItem('user', JSON.stringify(user));
-
-      // Log the user object to the console
-      //console.log('Logged in user:', user);
-
-      // Trigger the storage event to update Navbar
-      window.dispatchEvent(new Event('storage'));
-
-      // Navigate to DisplayFarmPage upon successful login
-      navigate('/home');
-    } catch (error) {
-      console.error('Login failed', error);
-      if (error.response) {
-        if (error.response.status === 404) {
-          // If the user doesn't exist, redirect to the registration page
-          navigate('/register');
-        } else if (error.response.status === 401) {
-          setError('Invalid credentials');
-        } else {
-          setError('An error occurred during login');
-        }
-      } else {
-        setError('Login failed');
-      }
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Invalid email or password');
     }
   };
 
   return (
     <div>
       <h2>Login</h2>
-      <form onSubmit={handleLogin}>
+      <form onSubmit={handleSubmit}>
         <div>
           <label>Username:</label>
           <input

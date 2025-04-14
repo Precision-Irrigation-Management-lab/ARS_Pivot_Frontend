@@ -1,7 +1,13 @@
 # Getting Started with Create React App
-# To start npm
-`$env:PATH += ";$HOME\.fnm"
-fnm env | Out-String | Invoke-Expression`
+1. install node JS
+2. install npm
+3. To start npm use the following command only if npm command doesnot run and says it doesnt not recognise npm as a command
+npm start
+
+4. run npm install in the current direction that installs the necessary packages.
+5. npm start.
+
+−102.092806,35.187906
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

@@ -70,8 +70,11 @@ const Navbar = () => {
             <li>
               <Link to="/nodestatus">NodeStatus</Link>
             </li>
-            <li>
+            {/* <li>
               <Link to="/pivotbuilder">PivotBuilder</Link>
+            </li> */}
+            <li>
+              <Link to="/generate-prescription-map">Generate Prescription Map</Link>
             </li>
             <li className="dropdown" ref={dropdownRef}>
               <button className="dropbtn" onClick={toggleDropdown}>
@@ -84,6 +87,7 @@ const Navbar = () => {
                 <Link to="/addtdrgateway" onClick={handleDropdownClick}>Add TDR's</Link>
                 <Link to="/addirt" onClick={handleDropdownClick}>Add IRT</Link>
                 <Link to="/settings" onClick={handleDropdownClick}>Settings</Link>
+                <Link to="/nodeform" onClick={handleDropdownClick}>nodeform</Link>
                 <button onClick={handleLogout}>Logout</button>
               </div>
             </li>

@@ -61,8 +61,12 @@ const AddLinearMove = () => {
     const [key, setKey] = useState(0);
     const [isLengthHorizontal, setIsLengthHorizontal] = useState(true);
     const debouncedSearchText = useDebounce(searchText, 500);
-    const [calculatedArea, setCalculatedArea] = useState(''); // Add this line
+    const [calculatedArea, setCalculatedArea] = useState('');
 
+    // ---- New States for Tab Switching and VRI Upload ----
+    const [selectedTab, setSelectedTab] = useState('sprinkler'); // 'sprinkler' or 'vri'
+    const [xmlFile, setXmlFile] = useState(null);
+    const [xmlData, setXmlData] = useState('');
 
     useEffect(() => {
         const fetchSuggestions = async () => {
@@ -82,59 +86,65 @@ const AddLinearMove = () => {
         fetchSuggestions();
     }, [debouncedSearchText]);
 
-    const handleCreated = useCallback((e) => {
-        const { layerType, layer } = e;
-    
-        if (layerType === 'rectangle' || layerType === 'polygon') {
-            if (drawnLayer) {
-                mapRef.current.removeLayer(layer);
-                alert('Please delete the existing layer before drawing a new one.');
-                return;
+    const handleCreated = useCallback(
+        (e) => {
+            const { layerType, layer } = e;
+
+            if (layerType === 'rectangle' || layerType === 'polygon') {
+                if (drawnLayer) {
+                    mapRef.current.removeLayer(layer);
+                    alert('Please delete the existing layer before drawing a new one.');
+                    return;
+                }
+
+                const geojson = layer.toGeoJSON();
+                const bounds = layer.getBounds
+                    ? layer.getBounds()
+                    : L.latLngBounds(layer.getLatLngs()[0]);
+                const southWest = bounds.getSouthWest();
+                const northEast = bounds.getNorthEast();
+                const layerLength = southWest.distanceTo([southWest.lat, northEast.lng]);
+                const layerWidth = southWest.distanceTo([northEast.lat, southWest.lng]);
+
+                // Calculate area (length * width)
+                const area = layerLength * layerWidth;
+
+                geojson.properties.length = layerLength;
+                geojson.properties.width = layerWidth;
+                geojson.properties.area = area;
+
+                const center = bounds.getCenter();
+                setCenterPoint({ lat: center.lat, lng: center.lng });
+
+                setDrawnLayer(layer);
+
+                const userChoice = window.confirm(
+                    'Does the Linear move horizontally? Click "OK" for Yes, "Cancel" for No.'
+                );
+                setIsLengthHorizontal(userChoice);
+                if (userChoice) {
+                    setLengthOfLinear(layerLength);
+                    setWidthOfLinear(layerWidth);
+                } else {
+                    setLengthOfLinear(layerWidth);
+                    setWidthOfLinear(layerLength);
+                }
+
+                setBbox([
+                    [southWest.lat, southWest.lng],
+                    [northEast.lat, northEast.lng],
+                ]);
+
+                // Set the calculated area
+                setCalculatedArea(area.toFixed(2)); // Store area value (rounded to 2 decimal places)
+
+                console.log('Layer created:', geojson);
+                console.log('Bounding Box:', bbox);
+                console.log('Area:', area);
             }
-    
-            const geojson = layer.toGeoJSON();
-            const bounds = layer.getBounds ? layer.getBounds() : L.latLngBounds(layer.getLatLngs()[0]);
-            const southWest = bounds.getSouthWest();
-            const northEast = bounds.getNorthEast();
-            const layerLength = southWest.distanceTo([southWest.lat, northEast.lng]);
-            const layerWidth = southWest.distanceTo([northEast.lat, southWest.lng]);
-    
-            // Calculate area (length * width)
-            const area = layerLength * layerWidth;
-    
-            geojson.properties.length = layerLength;
-            geojson.properties.width = layerWidth;
-            geojson.properties.area = area;
-    
-            const center = bounds.getCenter();
-            setCenterPoint({ lat: center.lat, lng: center.lng });
-    
-            setDrawnLayer(layer);
-    
-            const userChoice = window.confirm('Does the Linear move horizontally? Click "OK" for Yes, "Cancel" for No.');
-            setIsLengthHorizontal(userChoice);
-            if (userChoice) {
-                setLengthOfLinear(layerLength);
-                setWidthOfLinear(layerWidth);
-            } else {
-                setLengthOfLinear(layerWidth);
-                setWidthOfLinear(layerLength);
-            }
-    
-            setBbox([
-                [southWest.lat, southWest.lng],
-                [northEast.lat, northEast.lng]
-            ]);
-    
-            // Set the calculated area
-            setCalculatedArea(area.toFixed(2));  // Store area value (rounded to 2 decimal places)
-    
-            console.log('Layer created:', geojson);
-            console.log('Bounding Box:', bbox);
-            console.log('Area:', area);
-        }
-    }, [drawnLayer]);
-    
+        },
+        [drawnLayer, bbox]
+    );
 
     const handleDeleted = useCallback(() => {
         setDrawnLayer(null);
@@ -143,7 +153,7 @@ const AddLinearMove = () => {
         setCenterPoint({ lat: '', lng: '' });
         setBbox(null);
         setStartPoint(null);
-        setKey((prevKey) => prevKey + 1);  // Force re-rendering by changing the key
+        setKey((prevKey) => prevKey + 1); // Force re-rendering by changing the key
         console.log('All layers deleted');
     }, []);
 
@@ -223,12 +233,16 @@ const AddLinearMove = () => {
         if (!mapRef.current || !drawnLayer) return;
 
         // Determine the deltas based on user choice
-        const latDelta = isLengthHorizontal ? widthOfLinear / 111320 : lengthOfLinear / 111320; // Width or Length in meters converted to degrees latitude
-        const lngDelta = isLengthHorizontal ? lengthOfLinear / (111320 * Math.cos(centerPoint.lat * Math.PI / 180)) : widthOfLinear / (111320 * Math.cos(centerPoint.lat * Math.PI / 180)); // Length or Width in meters converted to degrees longitude
+        const latDelta = isLengthHorizontal
+            ? widthOfLinear / 111320
+            : lengthOfLinear / 111320; // Width or Length in meters converted to degrees latitude
+        const lngDelta = isLengthHorizontal
+            ? lengthOfLinear / (111320 * Math.cos(centerPoint.lat * Math.PI / 180))
+            : widthOfLinear / (111320 * Math.cos(centerPoint.lat * Math.PI / 180)); // Length or Width in meters converted to degrees longitude
 
         const bounds = L.latLngBounds([
             [centerPoint.lat - latDelta / 2, centerPoint.lng - lngDelta / 2],
-            [centerPoint.lat + latDelta / 2, centerPoint.lng + lngDelta / 2]
+            [centerPoint.lat + latDelta / 2, centerPoint.lng + lngDelta / 2],
         ]);
 
         if (drawnLayer.setBounds) {
@@ -239,7 +253,7 @@ const AddLinearMove = () => {
 
         const newBbox = [
             [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
-            [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
+            [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
         ];
         setBbox(newBbox);
 
@@ -252,60 +266,126 @@ const AddLinearMove = () => {
         }
     }, [lengthOfLinear, widthOfLinear, centerPoint, updateRectangle]);
 
+    // ----- NEW: Handle XML File -----
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        setXmlFile(file);
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                setXmlData(evt.target.result); // Store file content as string
+            };
+            reader.readAsText(file);
+        }
+    };
+
     const handleSubmit = async () => {
         if (!user_id) {
             alert('User not logged in or user ID not available');
             return;
         }
-    
+
         if (!drawnLayer || !startPoint) {
             alert('Please draw a shape and select a start point on the map before submitting.');
             return;
         }
-    
-        const bounds = drawnLayer.getBounds ? drawnLayer.getBounds() : L.latLngBounds(drawnLayer.getLatLngs()[0]);
-        const bbox = [
+
+        // Common bounding box logic
+        const bounds = drawnLayer.getBounds
+            ? drawnLayer.getBounds()
+            : L.latLngBounds(drawnLayer.getLatLngs()[0]);
+        const finalBbox = [
             [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
-            [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
+            [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
         ];
-    
-        const sprinklerZonesData = sprinklerZones.reduce((acc, zone, index) => {
-            const width = index === numberOfSprinklerZones - 1 ? widthOfLinear : parseFloat(zone.finalWidth);
-            acc[zone.id] = [parseFloat(zone.initialWidth || 0), width];
-            return acc;
-        }, {});
-    
-        const geoJsonRequest = {
-            center: {
-                latitude: parseFloat(centerPoint.lat),
-                longitude: parseFloat(centerPoint.lng),
-            },
-            width: widthOfLinear,
-            length: lengthOfLinear,
-            gridspacing: 2,
-            farmname: farmName,
-            irrigation_system_name: linearMoveName,
-            sprinklerzones: sprinklerZonesData,
-            bbox: bbox,
-            startpoint: startPoint,
-            user_id: user_id,
-            isLengthHorizontal: isLengthHorizontal,
-            area: calculatedArea // Include area in the request
-        };
-    
-        console.log('Request Body:', JSON.stringify(geoJsonRequest, null, 2));
-    
-        const endpoint = 'http://127.0.0.1:8000/linear/generate-geojson';
-        try {
-            const response = await axios.post(endpoint, geoJsonRequest);
-            console.log('API Response:', response.data);
-    
-            navigate('/addmz', { state: { farmname: farmName, irrigation_system_name: linearMoveName } });
-        } catch (error) {
-            console.error('Error submitting GeoJSON:', error);
+
+        // If user selected the "VRI" tab, upload XML to the different endpoint
+        if (selectedTab === 'vri') {
+            if (!xmlData) {
+                alert('Please upload a VRI XML file before submitting.');
+                return;
+            }
+
+            const xmlGeoJsonRequest = {
+                user_id: user_id,
+                center: {
+                    latitude: parseFloat(centerPoint.lat),
+                    longitude: parseFloat(centerPoint.lng),
+                },
+                width: widthOfLinear,
+                length: lengthOfLinear,
+                farmname: farmName,
+                irrigation_system_name: linearMoveName,
+                is_length_horizontal: isLengthHorizontal,
+                startpoint: startPoint,
+                bbox: finalBbox,
+                xml_data: xmlData,
+                maximum_speed: parseFloat(maximumSpeed),
+                application_rate: parseFloat(waterApplicationAtMaxSpeed),
+            };
+
+            console.log('Request Body (VRI):', JSON.stringify(xmlGeoJsonRequest, null, 2));
+
+            try {
+                const response = await axios.post(
+                    'http://127.0.0.1:8000/linear/generate-geojson-from-xml',
+                    xmlGeoJsonRequest
+                );
+                console.log('API Response (VRI):', response.data);
+                navigate('/addmz', {
+                    state: { farmname: farmName, irrigation_system_name: linearMoveName },
+                });
+            } catch (error) {
+                console.error('Error submitting VRI XML GeoJSON:', error);
+            }
+        } else {
+            // Sprinkler zone logic remains the same
+            const sprinklerZonesData = sprinklerZones.reduce((acc, zone, index) => {
+                const width =
+                    index === numberOfSprinklerZones - 1
+                        ? widthOfLinear
+                        : parseFloat(zone.finalWidth);
+                acc[zone.id] = [parseFloat(zone.initialWidth || 0), width];
+                return acc;
+            }, {});
+
+            const geoJsonRequest = {
+                center: {
+                    latitude: parseFloat(centerPoint.lat),
+                    longitude: parseFloat(centerPoint.lng),
+                },
+                width: widthOfLinear,
+                length: lengthOfLinear,
+                gridspacing: 2,
+                farmname: farmName,
+                irrigation_system_name: linearMoveName,
+                sprinklerzones: sprinklerZonesData,
+                bbox: finalBbox,
+                startpoint: startPoint,
+                user_id: user_id,
+                isLengthHorizontal: isLengthHorizontal,
+                area: calculatedArea,
+                maximum_speed: parseFloat(maximumSpeed),
+                application_rate: parseFloat(waterApplicationAtMaxSpeed),
+            };
+
+            console.log('Request Body (Sprinkler):', JSON.stringify(geoJsonRequest, null, 2));
+
+            const endpoint = 'http://127.0.0.1:8000/linear/generate-geojson';
+            try {
+                const response = await axios.post(endpoint, geoJsonRequest);
+                console.log('API Response (Sprinkler):', response.data);
+
+                navigate('/addmz', {
+                    state: { farmname: farmName, irrigation_system_name: linearMoveName },
+                });
+            } catch (error) {
+                console.error('Error submitting GeoJSON:', error);
+            }
         }
     };
-    
+
     const getCornerMarkers = () => {
         if (!bbox) return null;
 
@@ -317,11 +397,15 @@ const AddLinearMove = () => {
             { latlng: southWest, name: 'South West' },
             { latlng: northEast, name: 'North East' },
             { latlng: southEast, name: 'South East' },
-            { latlng: northWest, name: 'North West' }
+            { latlng: northWest, name: 'North West' },
         ];
 
         return corners.map((corner, index) => (
-            <Marker key={index} position={corner.latlng} eventHandlers={{ click: (e) => handleStartPointSelection(e, corner.latlng) }}>
+            <Marker
+                key={index}
+                position={corner.latlng}
+                eventHandlers={{ click: (e) => handleStartPointSelection(e, corner.latlng) }}
+            >
                 <Popup>{corner.name}</Popup>
             </Marker>
         ));
@@ -344,7 +428,12 @@ const AddLinearMove = () => {
                     ))}
                 </div>
             </form>
-            <MapContainer center={[39.539106, -119.806483]} zoom={13} className="leaflet-container" ref={mapRef}>
+            <MapContainer
+                center={[39.539106, -119.806483]}
+                zoom={13}
+                className="leaflet-container"
+                ref={mapRef}
+            >
                 <TileLayer
                     url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
                     attribution='Imagery © <a href="https://www.google.com/maps">Google Maps</a>'
@@ -369,19 +458,38 @@ const AddLinearMove = () => {
                     />
                 </FeatureGroup>
                 {selectedPosition && <Marker position={selectedPosition} />}
-                {drawnLayer && drawnLayer.getBounds && <Rectangle bounds={drawnLayer.getBounds()} color="blue" weight={1} />}
-                {drawnLayer && !drawnLayer.getBounds && <Polygon positions={drawnLayer.getLatLngs()[0]} color="blue" weight={1} />}
+                {drawnLayer && drawnLayer.getBounds && (
+                    <Rectangle bounds={drawnLayer.getBounds()} color="blue" weight={1} />
+                )}
+                {drawnLayer && !drawnLayer.getBounds && (
+                    <Polygon positions={drawnLayer.getLatLngs()[0]} color="blue" weight={1} />
+                )}
                 {getCornerMarkers()}
             </MapContainer>
+
+            {/* Tab switching buttons */}
+            <div className="tab-container">
+                <button
+                    type="button"
+                    onClick={() => setSelectedTab('sprinkler')}
+                    className={selectedTab === 'sprinkler' ? 'active-tab' : ''}
+                >
+                    Add Sprinkler Zones
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setSelectedTab('vri')}
+                    className={selectedTab === 'vri' ? 'active-tab' : ''}
+                >
+                    Upload VRI
+                </button>
+            </div>
+
             <div className="input-fields">
                 <div className="input-field">
                     <label>
                         Farm Name:
-                        <input
-                            type="text"
-                            value={farm}
-                            readOnly
-                        />
+                        <input type="text" value={farm} readOnly />
                     </label>
                 </div>
                 <div className="input-field">
@@ -416,13 +524,12 @@ const AddLinearMove = () => {
                 </div>
                 <div className="input-field">
                     <label>
-                          Area of Linear Move (square meters):
-                         <input
-                             type="text"
+                        Area of Linear Move (square meters):
+                        <input
+                            type="text"
                             value={calculatedArea}
                             onChange={(e) => setCalculatedArea(e.target.value)}
-                            // Make it editable if required by removing this
-                         />
+                        />
                     </label>
                 </div>
 
@@ -466,50 +573,82 @@ const AddLinearMove = () => {
                         />
                     </label>
                 </div>
-                <div className="input-field">
-                    <label>
-                        Number of Sprinkler Zones:
-                        <input
-                            type="number"
-                            value={numberOfSprinklerZones}
-                            onChange={handleNumberOfSprinklerZonesChange}
-                            min="1"
-                        />
-                    </label>
-                </div>
-                {sprinklerZones.map((zone, index) => (
-                    <div key={zone.id} className="sprinkler-zone">
-                        {index === 0 && (
+
+                {/* Conditionally render Sprinkler Zones if tab is 'sprinkler' */}
+                {selectedTab === 'sprinkler' && (
+                    <>
+                        <div className="input-field">
                             <label>
-                                Sprinkler Zone {zone.id} - Initial Width (meters):
+                                Number of Sprinkler Zones:
                                 <input
-                                    type="text"
-                                    value={zone.initialWidth}
-                                    onChange={(e) => handleSprinklerZoneChange(index, 'initialWidth', e.target.value)}
+                                    type="number"
+                                    value={numberOfSprinklerZones}
+                                    onChange={handleNumberOfSprinklerZonesChange}
+                                    min="1"
                                 />
                             </label>
-                        )}
+                        </div>
+                        {sprinklerZones.map((zone, index) => (
+                            <div key={zone.id} className="sprinkler-zone">
+                                {index === 0 && (
+                                    <label>
+                                        Sprinkler Zone {zone.id} - Initial Width (meters):
+                                        <input
+                                            type="text"
+                                            value={zone.initialWidth}
+                                            onChange={(e) =>
+                                                handleSprinklerZoneChange(
+                                                    index,
+                                                    'initialWidth',
+                                                    e.target.value
+                                                )
+                                            }
+                                        />
+                                    </label>
+                                )}
+                                <label>
+                                    Sprinkler Zone {zone.id} - Final Width (meters):
+                                    <input
+                                        type="text"
+                                        value={
+                                            index === numberOfSprinklerZones - 1
+                                                ? widthOfLinear
+                                                : zone.finalWidth
+                                        }
+                                        onChange={(e) =>
+                                            handleSprinklerZoneChange(
+                                                index,
+                                                'finalWidth',
+                                                e.target.value
+                                            )
+                                        }
+                                        readOnly={index === numberOfSprinklerZones - 1}
+                                    />
+                                </label>
+                            </div>
+                        ))}
+                        <div className="input-field">
+                            <label>
+                                Space Between Nozzles (meters):
+                                <input
+                                    type="text"
+                                    value={spaceBetweenNozzles}
+                                    onChange={handleSpaceBetweenNozzlesChange}
+                                />
+                            </label>
+                        </div>
+                    </>
+                )}
+
+                {/* Conditionally render VRI upload if tab is 'vri' */}
+                {selectedTab === 'vri' && (
+                    <div className="input-field">
                         <label>
-                            Sprinkler Zone {zone.id} - Final Width (meters):
-                            <input
-                                type="text"
-                                value={index === numberOfSprinklerZones - 1 ? widthOfLinear : zone.finalWidth}
-                                onChange={(e) => handleSprinklerZoneChange(index, 'finalWidth', e.target.value)}
-                                readOnly={index === numberOfSprinklerZones - 1}
-                            />
+                            Upload VRI XML File:
+                            <input type="file" accept=".xml" onChange={handleFileChange} />
                         </label>
                     </div>
-                ))}
-                <div className="input-field">
-                    <label>
-                        Space Between Nozzles (meters):
-                        <input
-                            type="text"
-                            value={spaceBetweenNozzles}
-                            onChange={handleSpaceBetweenNozzlesChange}
-                        />
-                    </label>
-                </div>
+                )}
             </div>
             <button className="submit-button" onClick={handleSubmit}>
                 Submit
