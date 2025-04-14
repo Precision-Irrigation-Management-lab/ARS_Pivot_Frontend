@@ -1,0 +1,16 @@
+# Ignore build files
+build/
+dist/
+node_modules/
+
+# Ignore specific files with known ESLint issues
+src/JS/AddCenterPivot.js
+src/JS/AddLinearMove.js
+src/JS/AddMZ.js
+src/JS/AddMicroIrrigation.js
+src/JS/GeneratePrescriptionMap.js
+src/JS/HomePage.js
+src/JS/LinearTest.js
+src/JS/VWCChart.js
+src/JS/WeatherApp.js
+src/JS/services/api.js
