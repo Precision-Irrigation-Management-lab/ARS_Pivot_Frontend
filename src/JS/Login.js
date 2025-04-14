@@ -6,18 +6,20 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       const response = await authAPI.login({
         username: username,
         password: password
       });
 
-      const { access_token, token_type } = response.data;
+      const { access_token } = response.data;
       sessionStorage.setItem('token', access_token);
 
       // Fetch user info
@@ -28,13 +30,15 @@ const Login = () => {
     } catch (err) {
       console.error('Login error:', err);
       setError('Invalid email or password');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div>
       <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleLogin}>
         <div>
           <label>Username:</label>
           <input
@@ -51,7 +55,7 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <button type="submit">Login</button>
+        <button type="submit" disabled={loading}>Login</button>
       </form>
       {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>

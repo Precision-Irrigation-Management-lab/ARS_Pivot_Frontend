@@ -2,9 +2,9 @@ import axios from 'axios';
 
 // Configure environment-specific base URLs
 const API_CONFIG = {
-  // Use AWS endpoint in production, localhost in development
+  // Use HTTPS with Cloudflare SSL in production
   BASE_URL: process.env.NODE_ENV === 'production' 
-    ? 'https://ec2-3-143-251-59.us-east-2.compute.amazonaws.com' 
+    ? 'https://ec2-3-143-251-59.us-east-2.compute.amazonaws.com' // Now using HTTPS since we have Cloudflare SSL
     : 'http://localhost:8000',
   
   // Service-specific endpoints
@@ -28,19 +28,58 @@ const API_CONFIG = {
 const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
-  headers: API_CONFIG.HEADERS
+  headers: API_CONFIG.HEADERS,
+  withCredentials: false, // Set to true if you need to send cookies
 });
 
 // Add request interceptor for authentication
 apiClient.interceptors.request.use(
   config => {
+    // Get token from sessionStorage
     const token = sessionStorage.getItem('token');
     if (token) {
+      // Set the Authorization header for every request
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   error => Promise.reject(error)
+);
+
+// Add response interceptor for better error handling and token refresh
+apiClient.interceptors.response.use(
+  response => response,
+  async error => {
+    const originalRequest = error.config;
+    
+    // If error is unauthorized and we haven't tried to refresh token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      // Could implement token refresh logic here:
+      // 1. Get a new token using refresh token
+      // 2. Update sessionStorage with new token
+      // 3. Retry the original request
+      
+      // For now, just redirect to login page when token expires
+      if (error.response?.data?.detail === "Token expired") {
+        console.log("Session expired. Redirecting to login...");
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+    }
+    
+    if (error.code === 'ERR_NETWORK') {
+      console.error('Network Error: The server might be down or CORS might be misconfigured');
+      console.log('Attempted URL:', error.config?.url);
+    } else if (error.response) {
+      console.error('Response error:', error.response.status, error.response.data);
+    }
+    
+    return Promise.reject(error);
+  }
 );
 
 // API functions for farms
