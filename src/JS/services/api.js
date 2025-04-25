@@ -4,8 +4,8 @@ import axios from 'axios';
 const API_CONFIG = {
   // Use HTTPS with Cloudflare SSL in production
   BASE_URL: process.env.NODE_ENV === 'production' 
-    ? 'https://ec2-3-143-251-59.us-east-2.compute.amazonaws.com' // Now using HTTPS since we have Cloudflare SSL
-    : 'http://localhost:8000',
+    ? 'http://ec2-3-143-251-59.us-east-2.compute.amazonaws.com' // Now using HTTPS since we have Cloudflare SSL
+    : 'http://localhost:80',
   
   // Service-specific endpoints
   SERVICES: {
@@ -103,7 +103,7 @@ export const irrigationAPI = {
 export const authAPI = {
   login: (credentials) => apiClient.post(`${API_CONFIG.SERVICES.USER}/token`, credentials),
   register: (userData) => apiClient.post(`${API_CONFIG.SERVICES.USER}/register`, userData),
-  getUserInfo: () => apiClient.get(`${API_CONFIG.SERVICES.USER}/users/me`)
+  getUserInfo: () => apiClient.get(`${API_CONFIG.SERVICES.USER}/me`)
 };
 
 // API functions for data upload
