@@ -2,9 +2,9 @@ import axios from 'axios';
 
 // Configure environment-specific base URLs
 const API_CONFIG = {
-  // Use HTTPS with Cloudflare SSL in production
+  // Allow both HTTP and HTTPS options
   BASE_URL: process.env.NODE_ENV === 'production' 
-    ? 'http://ec2-3-143-251-59.us-east-2.compute.amazonaws.com' // Now using HTTPS since we have Cloudflare SSL
+    ? 'http://ec2-3-143-251-59.us-east-2.compute.amazonaws.com' 
     : 'http://localhost:80',
   
   // Service-specific endpoints
@@ -41,16 +41,45 @@ apiClient.interceptors.request.use(
       // Set the Authorization header for every request
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Always ensure CORS headers are properly set
+    config.headers['Access-Control-Allow-Origin'] = '*';
+    
     return config;
   },
   error => Promise.reject(error)
 );
 
-// Add response interceptor for better error handling and token refresh
+// Enhanced response interceptor with retry logic for network errors
 apiClient.interceptors.response.use(
   response => response,
   async error => {
     const originalRequest = error.config;
+    
+    // If we have a network error and this is the first retry attempt
+    if (error.code === 'ERR_NETWORK' && !originalRequest._retry) {
+      console.log('Network error detected, retrying with modified request');
+      originalRequest._retry = true;
+      
+      // Create a direct fetch request as a fallback
+      try {
+        const response = await fetch(originalRequest.url, {
+          method: originalRequest.method,
+          headers: {
+            'Content-Type': originalRequest.headers['Content-Type'] || 'application/json',
+            ...originalRequest.headers
+          },
+          body: originalRequest.data ? JSON.stringify(originalRequest.data) : undefined,
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return { data };
+        }
+      } catch (fetchError) {
+        console.error('Fetch fallback also failed:', fetchError);
+      }
+    }
     
     // If error is unauthorized and we haven't tried to refresh token yet
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -101,7 +130,18 @@ export const irrigationAPI = {
 
 // API functions for user authentication
 export const authAPI = {
-  login: (credentials) => apiClient.post(`${API_CONFIG.SERVICES.USER}/token`, credentials),
+  login: (credentials) => {
+    // Format data correctly for OAuth2
+    const formData = new URLSearchParams();
+    formData.append('username', credentials.email);
+    formData.append('password', credentials.password);
+    
+    return apiClient.post(`${API_CONFIG.SERVICES.USER}/token`, formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+  },
   register: (userData) => apiClient.post(`${API_CONFIG.SERVICES.USER}/register`, userData),
   getUserInfo: () => apiClient.get(`${API_CONFIG.SERVICES.USER}/me`)
 };
