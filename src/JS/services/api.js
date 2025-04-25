@@ -131,7 +131,7 @@ export const irrigationAPI = {
 // API functions for user authentication
 export const authAPI = {
   login: (credentials) => {
-    // Format data correctly for OAuth2
+    // Format data correctly for OAuth2 token request
     const formData = new URLSearchParams();
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
